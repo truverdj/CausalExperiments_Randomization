@@ -1,0 +1,165 @@
+---
+title: "Sta 522 HW7"
+author: "Daniel Truver"
+date: "3/28/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+#### (1) NCVS
+
+```{r setup1}
+library(dplyr)
+library(ggplot2)
+theme_set(theme_bw())
+ncvs = read.csv("ncvs2000.csv")
+```
+
+##### (a) Random Assignment
+
+```{r}
+n = nrow(ncvs)
+treatment = sample(c(rep(0, n/2), rep(1, n/2)))
+ncvs$treatment = treatment
+```
+
+##### (b) Example Variables
+
+```{r didItWork}
+treat.df = ncvs %>%
+  filter(treatment == 1)
+control.df = ncvs %>% 
+  filter(treatment == 0)
+treat.avg = data.frame(c(
+  mean(treat.df$age),
+  mean(treat.df$married == 1),
+  mean(treat.df$race == 1),
+  mean(treat.df$race == 2),
+  mean(treat.df$race == 3),
+  mean(treat.df$race == 4),
+  mean(treat.df$sex == 0),
+  mean(treat.df$sex == 1)
+))
+rownames(treat.avg) = c("age", "married", "White", "Black", "Native American",
+                        "Asian", "male", "female")
+control.avg = data.frame(c(
+  mean(control.df$age),
+  mean(control.df$married == 1),
+  mean(control.df$race == 1),
+  mean(control.df$race == 2),
+  mean(control.df$race == 3),
+  mean(control.df$race == 4),
+  mean(control.df$sex == 0),
+  mean(control.df$sex == 1)
+))
+rownames(control.avg) = rownames(treat.avg)
+```
+
+```{r echo=FALSE}
+df.avg = cbind(treat.avg, control.avg)
+colnames(df.avg) = c("treatment", "control")
+knitr::kable(df.avg, col.names = c("Treatment", "Control"),
+             caption = "Sample averages for treatment and control groups")
+```
+
+##### (c) Discussion
+
+Every variable is pretty much the exact same. Let's add a column of differences to the table above and take a look at the distribution of the one continuous variable, age.
+
+```{r, echo=FALSE}
+df.avg$diff = df.avg$treatment - df.avg$control
+knitr::kable(df.avg, col.names = c("Treatment", "Control", "Difference"),
+             caption = "Differences between treatment and control groups")
+```
+
+```{r, echo=FALSE}
+{
+  par(mfrow = c(1,2))
+  hist(treat.df$age)
+  hist(control.df$age)
+}
+```
+
+#### (2) Completely Randomized, Two Sample Experiment
+
+```{r echo=FALSE}
+data.2 = data.frame(individual = 1:4,
+                    Y.1 = c(5,2,NA,NA),
+                    Y.0 = c(NA,NA,1,3))
+```
+
+##### (a) Questionable Entries
+
+The question marks are present because we did not observe the values for individuals 3 and 4 under the treatment, and we did not observe the values for individuals 1 and 2 under the control. Within one run of this experiment, is impossible to obtain both treatment and control observations for an individual.
+
+##### (b) Fisher Sharp Null
+
+Under the Fisher Null hypothesis, the data would look like this.
+
+```{r echo=FALSE}
+Y = c(5,2,1,3)
+n = length(Y)
+data.2 %>% mutate(Y.1 = Y, Y.0 = Y) %>%
+  knitr::kable(., col.names = c("individual", "Y_i(1)", "Y_i(0)"),
+               caption = "Data under Fisher sharp null hypothesis")
+```
+
+##### (c) Possible Assignments
+
+```{r}
+trt = data.frame(combn(data.2$individual, m = 2))
+```
+
+```{r, echo=FALSE}
+knitr::kable(trt, col.names = paste0("treatGroup", 1:6),
+             caption = "Possible assignments to treatment group")
+```  
+
+```{r}
+y1 = rep(NA, 6)
+y0 = rep(NA, 6)
+for (i in 1:6){
+  treatGroup = data.2$individual %in% trt[,i]
+  y1[i] = mean(Y[treatGroup])
+  y0[i] = mean(Y[!treatGroup])
+}
+diff.avg = y1-y0
+```
+
+##### (d) Fisher p-value
+
+```{r, echo=FALSE}
+ggplot(data = data.frame(diff.avg), aes(x = diff.avg)) +
+  geom_histogram() +
+  geom_vline(xintercept = 3/2, col = "red")
+```
+
+The probability is 0.33 that we would see a value as or more extreme than the observed value by random chance.
+
+##### (e) 
+
+```{r}
+treat = c(5,2)
+contr = c(1,3)
+full = c(treat, contr)
+conditions = c(1,1,0,0)
+S = 10000
+y.bar = rep(NA, S)
+for (i in 1:S){
+  samp = sample(conditions)
+  y.bar[i] = mean(full[samp == 1]) - mean(full[samp == 0])
+}
+```
+
+```{r, echo=FALSE}
+{
+  hist(y.bar, xlab = "Treatment effects")
+  abline(v=3/2, col = "red")
+}
+mean(y.bar >= 3/2) 
+```
+
+Our computed p-value here is `r mean(y.bar >= 3/2)`. It is nearly identical to the one computed in part (d).
