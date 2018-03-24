@@ -163,3 +163,59 @@ mean(y.bar >= 3/2)
 ```
 
 Our computed p-value here is `r mean(y.bar >= 3/2)`. It is nearly identical to the one computed in part (d).
+
+#### (3) Malaria
+
+```{r}
+placebo = c(8.62,1.48,8.93,9.57,2.65,7.30)
+vitaminA = c(7.53,.06,2.19,7.32,1.72,7.62)
+child = 1:12
+```
+
+##### (a) The Fisher Sharp Null
+
+We will first assume: Vitamin A supplements have no effect on Malaria parasites in any of the children (this is the null hypothesis). We will then see if the data support or reject this null hypothesis. Working under this assumption, we can create an impossible data set in which we observed both the treatment and control for every child throughout the experiment.
+
+```{r, echo=FALSE}
+df.pres = data.frame(child, observedVitaminA = c(vitaminA, rep(NA, 6)),
+                     observedControl = c(rep(NA, 6), placebo), 
+                     nullVitaminA = c(vitaminA, placebo),
+                     nullPlacebo = c(vitaminA, placebo))
+knitr::kable(df.pres, col.names = c("Child", "Observed with Vitamin A", 
+                                    "Observed with Placebo", 
+                                    "Null hypothesized effects of Vitamin A",
+                                    "Null hypothesized effects of Placebo"),
+             caption = "Observed Data and Values Assuming Null Hypothesis")
+```
+
+
+The "null hypothesized" columns are a result of logical deduction. Consider the case for child 1.
+We observed (in child 1) a parasite level of 7.53 with Vitamin A. If we assume (as we have in the null hypothesis) that Vitamin A has no effect on Malaria, then the same child would have the same parasite level (7.53) if they had received a placebo.
+Applying this process across all the children allows us to ask questions such as, "What parasite level would we have observed if child 1 had received a placebo instead of Vitamin A?" Under the null hypothesis, we can answer that question: "Child 1's results would be no different." The ability to answer such questions lets us simulate experiments in which the children were assigned to different groups. We can then compare the results (e.g. mean levels of parasite by group) of these simulated experiments to the true observed results. If our null hypothesis is correct, and Vitamin A has no effect, the results of the simulation should be reasonably similar to the true results. 
+
+##### (b) P-value
+
+```{r}
+set.seed(2018)
+S = 10000
+ydiff = rep(NA, S)
+assignment = c(rep(1,6), rep(0,6))
+Y = c(vitaminA, placebo)
+for (i in 1:S){
+  newAssign = sample(assignment) == 1
+  y.1 = mean(Y[newAssign])
+  y.0 = mean(Y[!newAssign])
+  ydiff[i] = y.1 - y.0
+}
+trueDiff = mean(vitaminA) - mean(placebo)
+ggplot(data = data.frame(ydiff), aes(x = ydiff)) +
+  geom_histogram() +
+  geom_vline(xintercept = trueDiff, color = "red")
+pvalue = mean(ydiff <= trueDiff)
+```
+
+P-value = `r pvalue`.
+
+##### (c) Explanation
+
+To determine the effect of Vitamin A on malaria, we examined the difference in average levels of malaria parasite between children receiving vitamin A and children receiving a placebo. The observed difference (Vitamin A group - placebo group) from the experiment was `r trueDiff`. If Vitamin A made no difference for any child, the probability of seeing a difference this extreme would be `r pvalue` (a `r 100*pvalue`% chance). That is, if Vitamin A had no effect and we repeated this experiment ten thousand times, we would expect `r 10000*pvalue` of the experiments to show us that Vitamin A decreased parasite levels by `r -trueDiff` or more on average. This probability is relatively high. In order to reasonably conclude that Vitamin A made a difference for at least one child, we need to see a p-value around 0.05. Therefore, we do not have sufficient evidence that Vitamin A reduces levels of malaria parasite.
